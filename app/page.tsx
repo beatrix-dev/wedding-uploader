@@ -2,8 +2,9 @@
 
 import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
-import Link from "next/link"; // Required for the button
-import { useRouter } from "next/navigation"; // Required for the auto-redirect
+import Link from "next/link"; 
+import { useRouter } from "next/navigation"; 
+import Image from "next/image";
 
 type UploadingFile = {
   file: File;
@@ -13,9 +14,8 @@ type UploadingFile = {
 export default function Home() {
   const [uploads, setUploads] = useState<UploadingFile[]>([]);
   const [success, setSuccess] = useState(false);
-  const router = useRouter(); // Initialize the "navigation helper"
+  const router = useRouter(); 
 
-  // Helper function to handle S3 upload with progress
   const uploadFile = (file: File) => {
     return new Promise(async (resolve, reject) => {
       try {
@@ -50,23 +50,13 @@ export default function Home() {
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     setSuccess(false);
-
-    const newUploads = acceptedFiles.map((file) => ({
-      file,
-      progress: 0,
-    }));
-
+    const newUploads = acceptedFiles.map((file) => ({ file, progress: 0 }));
     setUploads((prev) => [...prev, ...newUploads]);
 
     try {
       await Promise.all(acceptedFiles.map((file) => uploadFile(file)));
       setSuccess(true);
-      
-      // OPTIONAL: Automatically send them to the gallery after 2 seconds
-      setTimeout(() => {
-        router.push("/gallery");
-      }, 2000);
-
+      setTimeout(() => { router.push("/gallery"); }, 2000);
     } catch (error) {
       console.error("Upload failed", error);
     }
@@ -78,21 +68,54 @@ export default function Home() {
   });
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-rose-50 to-amber-50 flex flex-col items-center justify-center px-4">
-      <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-6 text-center">
-        <h1 className="text-2xl font-semibold mb-1">Moses Wedding 💍</h1>
-        <p className="text-gray-500 mb-6">Upload your memories from our special day</p>
-
-        <div
-          {...getRootProps()}
-          className={`border-2 border-dashed rounded-2xl p-8 cursor-pointer transition
-            ${isDragActive ? "border-rose-400 bg-rose-50" : "border-gray-300"}
-          `}
-        >
-          <input {...getInputProps()} />
-          <p className="text-gray-600">📸 Tap or drop photos here</p>
+    <main className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex flex-col items-center justify-center px-4">
+      {/* The White Card */}
+      <div className="max-w-md w-full bg-white border-2 border-black rounded-3xl shadow-[10px_10px_0px_0px_rgba(0,0,0,0.1)] p-8 text-center">
+        
+        {/* PROFILE PICTURE SECTION */}
+        <div className="relative w-32 h-32 mx-auto mb-4 overflow-hidden rounded-full border-4 border-rose-100 shadow-sm">
+          <Image 
+            src="/20241207_104607.jpeg" 
+            alt="Moses and Spouse" 
+            fill 
+            className="object-cover object-[center_20%]" 
+            priority // This helps the image load faster on mobile
+          />
         </div>
 
+        <h1 className="text-2xl font-semibold mb-1 text-gray-800"> Moses Wedding 💍</h1>
+        <p className="text-gray-500 mb-6 font-light">Upload your memories from our special day</p>
+
+        {/* UPLOAD BOX */}
+        <div
+  {...getRootProps()}
+  className={`border-2 border-dashed rounded-2xl p-10 cursor-pointer transition-all
+    ${isDragActive ? "border-black bg-stone-50" : "border-gray-300 hover:border-black"}
+  `}
+>
+  <input {...getInputProps()} />
+  
+  <div className="flex flex-col items-center gap-4">
+    {/* TWO OPTIONS UI */}
+    <div className="flex justify-center gap-8 mb-2">
+      <div className="flex flex-col items-center">
+        <span className="text-4xl mb-2">📸</span>
+        <span className="text-xs font-bold uppercase tracking-tighter text-black">Snap Now</span>
+      </div>
+      
+      <div className="flex flex-col items-center">
+        <span className="text-4xl mb-2">🖼️</span>
+        <span className="text-xs font-bold uppercase tracking-tighter text-black"> Upload From Gallery</span>
+      </div>
+    </div>
+
+    <p className="text-gray-500 text-sm font-light italic">
+      {isDragActive ? "Drop them here!" : "Tap to capture or choose memories"}
+    </p>
+  </div>
+</div>
+
+        {/* PROGRESS LIST */}
         {uploads.length > 0 && (
           <div className="mt-6 space-y-3">
             {uploads.map((u, i) => (
@@ -110,13 +133,13 @@ export default function Home() {
         )}
 
         {success && (
-          <p className="mt-6 text-green-600 font-medium animate-bounce">
-            🎉 Upload complete — Taking you to the gallery...
+          <p className="mt-6 text-green-600 font-medium animate-pulse">
+            🎉 Upload complete! Taking you to the gallery...
           </p>
         )}
       </div>
 
-      {/* VIEW GALLERY BUTTON - Placed outside the white box for a clean look */}
+      {/* VIEW GALLERY BUTTON */}
       <div className="mt-8 text-center">
         <Link 
           href="/gallery" 
