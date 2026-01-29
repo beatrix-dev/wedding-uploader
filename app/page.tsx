@@ -65,6 +65,9 @@ export default function Home() {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: { "image/*": [] },
+    // ADD THESE TWO LINES BELOW:
+    useFsAccessApi: false, 
+    inputProps: { capture: "environment" } as any
   });
 
   return (
