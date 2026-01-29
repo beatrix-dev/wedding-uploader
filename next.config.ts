@@ -1,12 +1,16 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  typescript: {
-    // This ignores TypeScript errors so the build can finish
-    ignoreBuildErrors: true,
+  typescript: { ignoreBuildErrors: true },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: `${process.env.AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com`,
+        pathname: '/**',
+      },
+    ],
   },
-  // Note: 'eslint' key is removed here because Next.js 16 
-  // no longer supports it in this file.
 };
 
 export default nextConfig;
