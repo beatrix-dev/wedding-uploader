@@ -79,11 +79,15 @@ export default function GuestGallery() {
               key={photo.key} 
               className="relative group break-inside-avoid rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 bg-gray-100"
             >
-              <img 
-                src={photo.url} 
-                alt="Wedding moment"
-                className="w-full h-auto object-cover block"
-                loading="lazy"
+            <img 
+              src={photo.url} 
+              alt="Wedding moment"
+              className="w-full h-auto min-h-[200px] object-cover block bg-gray-200"
+              loading="lazy"
+              onError={(e) => {
+            // This will help you see if the URL is broken
+              console.log("Image failed to load:", photo.url);
+               }}
               />
               
               {/* DELETE BUTTON: Only visible if the phone 'owns' this UUID key */}
