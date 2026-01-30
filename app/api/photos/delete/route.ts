@@ -19,8 +19,9 @@ export async function DELETE(req: Request) {
     });
 
     await s3.send(command);
-    return NextResponse.json({ message: "Deleted successfully" });
+    return NextResponse.json({ message: "Deleted" });
   } catch (error) {
-    return NextResponse.json({ error: "Failed to delete" }, { status: 500 });
+    console.error(error);
+    return NextResponse.json({ error: "Failed" }, { status: 500 });
   }
 }
