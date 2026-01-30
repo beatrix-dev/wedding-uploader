@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { CloudFrontClient, CreateInvalidationCommand } from "@aws-sdk/client-cloudfront";
 
-const s3 = new S3Client({
+const s3 = new S3Client({ /* your config */ });
+const cf = new CloudFrontClient({
   region: process.env.AWS_REGION || "us-east-1",
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
@@ -12,26 +14,27 @@ const s3 = new S3Client({
 export async function DELETE(req: Request) {
   try {
     const { key } = await req.json();
-
-    if (!key) {
-      return NextResponse.json({ error: "No key provided" }, { status: 400 });
-    }
-
-    // Standardize the bucket name variable
     const bucketName = process.env.AWS_BUCKET_NAME || "moses-wedding-photos";
 
-    console.log(`DEBUG: Attempting to delete ${key} from ${bucketName}`);
+    // 1. Delete from S3
+    await s3.send(new DeleteObjectCommand({ Bucket: bucketName, Key: key }));
 
-    const command = new DeleteObjectCommand({
-      Bucket: bucketName, // Ensure this is the BUCKET name, not the key!
-      Key: key,           // This is the filename/UUID
-    });
+    // 2. Tell CloudFront to forget this image immediately
+    // Replace 'YOUR_DISTRIBUTION_ID' with the ID (not the .net name) from AWS console
+    try {
+      await cf.send(new CreateInvalidationCommand({
+        DistributionId: "E1OHWCNCO50ZGN", // Check your AWS CF panel for this ID!
+        InvalidationBatch: {
+          CallerReference: Date.now().toString(),
+          Paths: { Quantity: 1, Items: [`/${key}`] },
+        },
+      }));
+    } catch (cfErr) {
+      console.error("CloudFront Invalidation failed, image might linger for a few mins");
+    }
 
-    await s3.send(command);
-    
-    return NextResponse.json({ message: "Deleted successfully" });
+    return NextResponse.json({ message: "Deleted" });
   } catch (error: any) {
-    console.error("DELETE ERROR:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

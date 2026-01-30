@@ -25,7 +25,7 @@ export async function GET() {
     const photos = Contents?.filter(item => item.Size! > 0).map((item) => ({
       key: item.Key,
       // Use the standard S3 virtual-hosted-style URL
-      url: `https://${bucketName}.s3.${region}.amazonaws.com/${item.Key}`,
+      url: `https://d2a2qfqrjw6f0p.cloudfront.net/${item.Key}`,
     })) || [];
 
     return NextResponse.json(photos);
