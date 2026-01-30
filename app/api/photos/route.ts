@@ -10,20 +10,30 @@ const s3 = new S3Client({
 });
 
 export async function GET() {
+  const bucketName = process.env.AWS_BUCKET_NAME;
+  const region = process.env.AWS_REGION;
+
   const command = new ListObjectsV2Command({
-    Bucket: process.env.AWS_BUCKET_NAME,
+    Bucket: bucketName,
+    // If your photos are in a folder, add Prefix: 'MosesWedding/' 
+    // If they are in the main area, leave Prefix out or empty:
+    Prefix: "", 
   });
 
   try {
     const { Contents } = await s3.send(command);
-    const photos = Contents?.map((item) => ({
+    
+    // Log this to your Vercel logs so you can see if AWS is actually sending files
+    console.log("S3 Contents found:", Contents?.length || 0);
+
+    const photos = Contents?.filter(item => item.Size! > 0).map((item) => ({
       key: item.Key,
-      // THE URL MUST BE THE PUBLIC LINK
-      url: `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${item.Key}`,
+      url: `https://${bucketName}.s3.${region}.amazonaws.com/${item.Key}`,
     })) || [];
 
     return NextResponse.json(photos);
   } catch (error) {
+    console.error("S3 List Error:", error);
     return NextResponse.json({ error: "Failed to fetch" }, { status: 500 });
   }
 }
