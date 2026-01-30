@@ -22,7 +22,8 @@ export async function POST(req: Request) {
 
     // Clean filename to prevent path traversal or weird characters
     const safeName = filename.replace(/[^a-z0-9.]/gi, "_").toLowerCase();
-    const key = `MosesWedding/${uuidv4()}-${safeName}`;
+   // const key = `MosesWedding/${uuidv4()}-${safeName}`;
+    const key = `${crypto.randomUUID()}-${filename}`;
 
     const command = new PutObjectCommand({
       Bucket: process.env.AWS_S3_BUCKET_NAME || "moses-wedding-photos",
@@ -33,6 +34,8 @@ export async function POST(req: Request) {
     const uploadUrl = await getSignedUrl(s3, command, {
       expiresIn: 60,
     });
+
+
 
     return NextResponse.json({ uploadUrl, key });
   } catch (error) {

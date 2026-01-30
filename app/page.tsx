@@ -24,31 +24,28 @@ export default function Home() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ filename: file.name, contentType: file.type }),
         });
-        const { uploadUrl } = await res.json();
-
+        
+        // 1. Capture the 'key' sent back by the API
+        const { uploadUrl, key } = await res.json(); 
+  
         const xhr = new XMLHttpRequest();
         xhr.open("PUT", uploadUrl);
         xhr.setRequestHeader("Content-Type", file.type);
-
-        xhr.upload.onprogress = (event) => {
-          if (event.lengthComputable) {
-            const percentComplete = Math.round((event.loaded / event.total) * 100);
-            setUploads((prev) =>
-              prev.map((u) => (u.file === file ? { ...u, progress: percentComplete } : u))
-            );
-          }
-        };
-
+  
+        // ... (keep your progress logic)
+  
         xhr.onload = () => {
           if (xhr.status === 200) {
-            // SUCCESS: Save file name to LocalStorage so guest can delete it later
+            // 2. SAVE THE KEY (uuid-filename.jpg), NOT THE ORIGINAL FILE NAME
             const existing = JSON.parse(localStorage.getItem("my-wedding-uploads") || "[]");
-            localStorage.setItem("my-wedding-uploads", JSON.stringify([...existing, file.name]));
+            localStorage.setItem("my-wedding-uploads", JSON.stringify([...existing, key]));
+            
             resolve(true);
           } else {
             reject();
           }
         };
+        // ... rest of the function
         
         xhr.onerror = () => reject();
         xhr.send(file);
