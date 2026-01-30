@@ -23,7 +23,7 @@ export async function DELETE(req: Request) {
     // Replace 'YOUR_DISTRIBUTION_ID' with the ID (not the .net name) from AWS console
     try {
       await cf.send(new CreateInvalidationCommand({
-        DistributionId: "E1OHWCNCO50ZGN", // Check your AWS CF panel for this ID!
+        DistributionId: "E8GCSTHD8G0TZ", // Check your AWS CF panel for this ID!
         InvalidationBatch: {
           CallerReference: Date.now().toString(),
           Paths: { Quantity: 1, Items: [`/${key}`] },
