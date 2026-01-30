@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 
 type UploadingFile = {
+  id: string; // Unique ID for tracking progress of multiple snaps
   file: File;
   progress: number;
 };
@@ -16,36 +17,48 @@ export default function Home() {
   const [success, setSuccess] = useState(false);
   const router = useRouter(); 
 
-  const uploadFile = (file: File) => {
+  const uploadFile = (file: File, uploadId: string) => {
     return new Promise(async (resolve, reject) => {
       try {
+        // Ensure the file isn't empty (common issue with interrupted camera snaps)
+        if (file.size === 0) {
+          reject("File is empty");
+          return;
+        }
+
         const res = await fetch("/api/upload-url", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ filename: file.name, contentType: file.type }),
         });
         
-        // 1. Capture the 'key' sent back by the API
         const { uploadUrl, key } = await res.json(); 
   
         const xhr = new XMLHttpRequest();
         xhr.open("PUT", uploadUrl);
         xhr.setRequestHeader("Content-Type", file.type);
   
-        // ... (keep your progress logic)
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const percentComplete = Math.round((event.loaded / event.total) * 100);
+            setUploads((prev) =>
+              prev.map((u) => (u.id === uploadId ? { ...u, progress: percentComplete } : u))
+            );
+          }
+        };
   
         xhr.onload = () => {
           if (xhr.status === 200) {
-            // 2. SAVE THE KEY (uuid-filename.jpg), NOT THE ORIGINAL FILE NAME
+            // SAVE THE UUID KEY so the delete button works in the gallery
             const existing = JSON.parse(localStorage.getItem("my-wedding-uploads") || "[]");
-            localStorage.setItem("my-wedding-uploads", JSON.stringify([...existing, key]));
-            
+            if (!existing.includes(key)) {
+              localStorage.setItem("my-wedding-uploads", JSON.stringify([...existing, key]));
+            }
             resolve(true);
           } else {
             reject();
           }
         };
-        // ... rest of the function
         
         xhr.onerror = () => reject();
         xhr.send(file);
@@ -57,13 +70,23 @@ export default function Home() {
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     setSuccess(false);
-    const newUploads = acceptedFiles.map((file) => ({ file, progress: 0 }));
+    
+    // Assign unique IDs to each file so progress bars don't overlap for same-named "image.jpg" snaps
+    const newUploads = acceptedFiles.map((file) => ({
+      id: Math.random().toString(36).substring(7),
+      file,
+      progress: 0 
+    }));
+    
     setUploads((prev) => [...prev, ...newUploads]);
 
     try {
-      await Promise.all(acceptedFiles.map((file) => uploadFile(file)));
+      // Upload files sequence to prevent mobile browser memory crashes
+      for (const item of newUploads) {
+        await uploadFile(item.file, item.id);
+      }
+      
       setSuccess(true);
-      // Give them a second to see the success message before redirecting
       setTimeout(() => { router.push("/gallery"); }, 2000);
     } catch (error) {
       console.error("Upload failed", error);
@@ -79,10 +102,9 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex flex-col items-center justify-center px-4 py-10">
       
-      {/* The B&W Theme Card */}
+      {/* Moses Wedding B&W Card */}
       <div className="max-w-md w-full bg-white border-2 border-black rounded-3xl shadow-[10px_10px_0px_0px_rgba(0,0,0,0.1)] p-8 text-center">
         
-        {/* PROFILE PICTURE SECTION */}
         <div className="relative w-32 h-32 mx-auto mb-4 overflow-hidden rounded-full border-4 border-black shadow-sm bg-gray-100">
           <Image 
             src="/robynandromano.jpeg" 
@@ -103,7 +125,6 @@ export default function Home() {
             ${isDragActive ? "border-black bg-stone-50 scale-95" : "border-gray-300 hover:border-black"}
           `}
         >
-          {/* capture="environment" forces the camera option on mobile */}
           <input {...getInputProps({ capture: "environment" })} />
           
           <div className="flex flex-col items-center gap-4">
@@ -128,8 +149,8 @@ export default function Home() {
         {/* PROGRESS LIST */}
         {uploads.length > 0 && (
           <div className="mt-6 space-y-3">
-            {uploads.map((u, i) => (
-              <div key={i} className="text-left">
+            {uploads.map((u) => (
+              <div key={u.id} className="text-left">
                 <p className="text-[10px] truncate font-bold uppercase text-gray-400">{u.file.name}</p>
                 <div className="w-full bg-gray-100 rounded-full h-1.5 mt-1">
                   <div
@@ -151,7 +172,6 @@ export default function Home() {
         )}
       </div>
 
-      {/* VIEW GALLERY BUTTON */}
       <div className="mt-8 text-center">
         <Link 
           href="/gallery" 
