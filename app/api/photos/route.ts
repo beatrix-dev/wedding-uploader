@@ -10,24 +10,20 @@ const s3 = new S3Client({
 });
 
 export async function GET() {
-  try {
-    const command = new ListObjectsV2Command({
-      Bucket: process.env.AWS_S3_BUCKET_NAME,
-      Prefix: "MosesWedding/", // Only get wedding photos
-    });
+  const command = new ListObjectsV2Command({
+    Bucket: process.env.AWS_BUCKET_NAME,
+  });
 
+  try {
     const { Contents } = await s3.send(command);
-    
-    // Generate the public URLs (if your bucket allows public read)
-    // Or generate signed URLs if the bucket is private
-    const photos = Contents?.map(item => ({
-      url: `https://${process.env.AWS_S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${item.Key}`,
+    const photos = Contents?.map((item) => ({
       key: item.Key,
-      date: item.LastModified
+      // THE URL MUST BE THE PUBLIC LINK
+      url: `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${item.Key}`,
     })) || [];
 
     return NextResponse.json(photos);
   } catch (error) {
-    return NextResponse.json({ error: "Failed to load photos" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to fetch" }, { status: 500 });
   }
 }
