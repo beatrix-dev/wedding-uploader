@@ -65,20 +65,16 @@ export default function Home() {
     });
   };
 
-  // Unified handler for when files are picked from either input
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
-    
     const selectedFiles = Array.from(e.target.files);
     
-    // Optional: Limit to 10 photos to prevent browser crashes
-    if (selectedFiles.length > 10) {
-        alert("Please upload a maximum of 10 photos at a time.");
+    if (selectedFiles.length > 15) {
+        alert("Please upload a maximum of 15 photos at a time.");
         return;
     }
 
     setSuccess(false);
-    
     const newUploads = selectedFiles.map((file) => ({
       id: Math.random().toString(36).substring(7),
       file,
@@ -99,73 +95,65 @@ export default function Home() {
   };
 
   return (
+    // Restored the pastel gradient background
     <main className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex flex-col items-center justify-center px-4 py-10">
       
-      <div className="max-w-md w-full bg-white border-2 border-black rounded-3xl shadow-[10px_10px_0px_0px_rgba(0,0,0,0.1)] p-8 text-center">
+      {/* Main White Card with sharp black shadow */}
+      <div className="max-w-md w-full bg-white border-2 border-black rounded-[40px] shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] p-8 text-center">
         
-        <div className="relative w-32 h-32 mx-auto mb-4 overflow-hidden rounded-full border-4 border-black shadow-sm bg-gray-100">
-          <Image 
-            src="/robynandromano.jpeg" 
-            alt="Moses and Spouse" 
-            fill 
-            className="object-cover object-[center_30%]" 
-            priority 
-          />
+        <h1 className="text-3xl font-black mb-1 text-black uppercase tracking-widest">Moses Wedding</h1>
+        <p className="text-gray-500 mb-6 font-medium italic">Share your perspective of our day</p>
+
+        {/* FEATURE PHOTO: Acting as a visual anchor */}
+        <div className="relative group w-full aspect-square rounded-[30px] overflow-hidden border-2 border-black mb-6 shadow-inner bg-gray-200">
+            <Image 
+                src="/robynandromano.jpeg" 
+                alt="The Happy Couple" 
+                fill 
+                className="object-cover transition-transform duration-700 group-hover:scale-110"
+                priority 
+            />
+            
+            {/* Subtle Overlay */}
+            <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors flex flex-col items-center justify-center">
+                <p className="text-white font-bold text-[10px] uppercase tracking-[0.3em] drop-shadow-md">Capture the magic</p>
+            </div>
         </div>
 
-        <h1 className="text-3xl font-bold mb-1 text-black uppercase tracking-widest">Moses Wedding 💍</h1>
-        <p className="text-gray-500 mb-8 font-light italic">Capture a moment for our digital guestbook</p>
-
         {/* HIDDEN INPUTS */}
-        {/* Input 1: Forced Camera */}
-        <input 
-          id="camera-input"
-          type="file" 
-          accept="image/*" 
-          capture="environment" 
-          className="hidden" 
-          onChange={handleFileChange}
-        />
-        {/* Input 2: Photo Library (Multiple) */}
-        <input 
-          id="gallery-input"
-          type="file" 
-          accept="image/*" 
-          multiple 
-          className="hidden" 
-          onChange={handleFileChange}
-        />
+        <input id="camera-input" type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileChange} />
+        <input id="gallery-input" type="file" accept="image/*" multiple className="hidden" onChange={handleFileChange} />
 
-        {/* CUSTOM BUTTONS */}
+        {/* BUTTON GRID */}
         <div className="grid grid-cols-2 gap-4">
           <button
             onClick={() => document.getElementById('camera-input')?.click()}
-            className="flex flex-col items-center justify-center border-2 border-black rounded-2xl p-6 hover:bg-stone-50 active:scale-95 transition-all shadow-sm"
+            className="flex flex-col items-center justify-center border-2 border-black rounded-2xl py-5 hover:bg-black hover:text-white transition-all active:scale-95 bg-white"
           >
-            <span className="text-5xl mb-3">📸</span>
-            <span className="text-[10px] font-black uppercase tracking-widest text-black">Snap Now</span>
+            <span className="text-3xl mb-1">📸</span>
+            <span className="text-[10px] font-black uppercase tracking-widest">Snap Now</span>
           </button>
 
           <button
             onClick={() => document.getElementById('gallery-input')?.click()}
-            className="flex flex-col items-center justify-center border-2 border-black rounded-2xl p-6 hover:bg-stone-50 active:scale-95 transition-all shadow-sm"
+            className="flex flex-col items-center justify-center border-2 border-black rounded-2xl py-5 hover:bg-black hover:text-white transition-all active:scale-95 bg-white"
           >
-            <span className="text-5xl mb-3">🖼️</span>
-            <span className="text-[10px] font-black uppercase tracking-widest text-black">Gallery</span>
+            <span className="text-3xl mb-1">🖼️</span>
+            <span className="text-[10px] font-black uppercase tracking-widest">Library</span>
           </button>
         </div>
 
         {/* PROGRESS LIST */}
         {uploads.length > 0 && (
-          <div className="mt-8 space-y-3">
+          <div className="mt-8 space-y-3 bg-stone-50/50 p-4 rounded-2xl border border-black/5">
             {uploads.map((u) => (
               <div key={u.id} className="text-left">
-                <p className="text-[10px] truncate font-bold uppercase text-gray-400">{u.file.name}</p>
-                <div className="w-full bg-gray-100 rounded-full h-1.5 mt-1">
-                  <div
-                    className="bg-black h-1.5 rounded-full transition-all duration-300"
-                    style={{ width: `${u.progress}%` }}
-                  />
+                <div className="flex justify-between items-center mb-1">
+                    <p className="text-[9px] truncate font-bold uppercase text-gray-400 max-w-[150px]">{u.file.name}</p>
+                    <p className="text-[9px] font-black text-black">{u.progress}%</p>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-1">
+                  <div className="bg-black h-1 rounded-full transition-all duration-300" style={{ width: `${u.progress}%` }} />
                 </div>
               </div>
             ))}
@@ -173,20 +161,21 @@ export default function Home() {
         )}
 
         {success && (
-          <div className="mt-6 p-3 bg-green-50 rounded-xl">
-            <p className="text-green-600 text-sm font-bold uppercase tracking-tighter animate-pulse">
-              🎉 Memories Saved! Redirecting...
+          <div className="mt-6 p-4 bg-black rounded-2xl animate-pulse">
+            <p className="text-white text-xs font-black uppercase tracking-widest">
+              ✨ Memories Uploaded!
             </p>
           </div>
         )}
       </div>
 
-      <div className="mt-8 text-center">
+      {/* FOOTER NAVIGATION */}
+      <div className="mt-10">
         <Link 
           href="/gallery" 
-          className="inline-block bg-black text-white px-10 py-3 rounded-full font-bold text-xs uppercase tracking-widest hover:bg-gray-800 transition-all shadow-lg active:scale-95"
+          className="text-black font-black text-sm uppercase tracking-[0.3em] border-b-2 border-black pb-1 hover:text-gray-500 hover:border-gray-500 transition-all"
         >
-          View Guest Gallery ✨
+          View Gallery
         </Link>
       </div>
     </main>
