@@ -95,7 +95,7 @@ export default function Home() {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { "image/*": [] },
+    accept: { "image/*": [".jpeg", ".jpg", ".png", ".heic"] },
     multiple: true,
   });
 
@@ -110,7 +110,7 @@ export default function Home() {
             src="/robynandromano.jpeg" 
             alt="Moses and Spouse" 
             fill 
-            className="object-cover object-[center_20%]" 
+            className="object-cover object-[center_30%]" 
             priority 
           />
         </div>
@@ -125,7 +125,7 @@ export default function Home() {
             ${isDragActive ? "border-black bg-stone-50 scale-95" : "border-gray-300 hover:border-black"}
           `}
         >
-          <input {...getInputProps({ capture: "environment" })} />
+          <input {...getInputProps({ })} />
           
           <div className="flex flex-col items-center gap-4">
             <div className="flex justify-center gap-10">
