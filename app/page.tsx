@@ -1,13 +1,12 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { useDropzone } from "react-dropzone";
+import { useState } from "react";
 import Link from "next/link"; 
 import { useRouter } from "next/navigation"; 
 import Image from "next/image";
 
 type UploadingFile = {
-  id: string; // Unique ID for tracking progress of multiple snaps
+  id: string; 
   file: File;
   progress: number;
 };
@@ -20,7 +19,6 @@ export default function Home() {
   const uploadFile = (file: File, uploadId: string) => {
     return new Promise(async (resolve, reject) => {
       try {
-        // Ensure the file isn't empty (common issue with interrupted camera snaps)
         if (file.size === 0) {
           reject("File is empty");
           return;
@@ -49,7 +47,6 @@ export default function Home() {
   
         xhr.onload = () => {
           if (xhr.status === 200) {
-            // SAVE THE UUID KEY so the delete button works in the gallery
             const existing = JSON.parse(localStorage.getItem("my-wedding-uploads") || "[]");
             if (!existing.includes(key)) {
               localStorage.setItem("my-wedding-uploads", JSON.stringify([...existing, key]));
@@ -68,11 +65,21 @@ export default function Home() {
     });
   };
 
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+  // Unified handler for when files are picked from either input
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    
+    const selectedFiles = Array.from(e.target.files);
+    
+    // Optional: Limit to 10 photos to prevent browser crashes
+    if (selectedFiles.length > 10) {
+        alert("Please upload a maximum of 10 photos at a time.");
+        return;
+    }
+
     setSuccess(false);
     
-    // Assign unique IDs to each file so progress bars don't overlap for same-named "image.jpg" snaps
-    const newUploads = acceptedFiles.map((file) => ({
+    const newUploads = selectedFiles.map((file) => ({
       id: Math.random().toString(36).substring(7),
       file,
       progress: 0 
@@ -81,28 +88,19 @@ export default function Home() {
     setUploads((prev) => [...prev, ...newUploads]);
 
     try {
-      // Upload files sequence to prevent mobile browser memory crashes
       for (const item of newUploads) {
         await uploadFile(item.file, item.id);
       }
-      
       setSuccess(true);
       setTimeout(() => { router.push("/gallery"); }, 2000);
     } catch (error) {
       console.error("Upload failed", error);
     }
-  }, [router]);
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: { "image/*": [".jpeg", ".jpg", ".png", ".heic"] },
-    multiple: true,
-  });
+  };
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex flex-col items-center justify-center px-4 py-10">
       
-      {/* Moses Wedding B&W Card */}
       <div className="max-w-md w-full bg-white border-2 border-black rounded-3xl shadow-[10px_10px_0px_0px_rgba(0,0,0,0.1)] p-8 text-center">
         
         <div className="relative w-32 h-32 mx-auto mb-4 overflow-hidden rounded-full border-4 border-black shadow-sm bg-gray-100">
@@ -118,37 +116,48 @@ export default function Home() {
         <h1 className="text-3xl font-bold mb-1 text-black uppercase tracking-widest">Moses Wedding 💍</h1>
         <p className="text-gray-500 mb-8 font-light italic">Capture a moment for our digital guestbook</p>
 
-        {/* UPLOAD BOX */}
-        <div
-          {...getRootProps()}
-          className={`border-2 border-dashed rounded-2xl p-8 cursor-pointer transition-all
-            ${isDragActive ? "border-black bg-stone-50 scale-95" : "border-gray-300 hover:border-black"}
-          `}
-        >
-          <input {...getInputProps({ })} />
-          
-          <div className="flex flex-col items-center gap-4">
-            <div className="flex justify-center gap-10">
-              <div className="flex flex-col items-center group">
-                <span className="text-4xl mb-2 group-hover:scale-110 transition-transform">📸</span>
-                <span className="text-[10px] font-bold uppercase tracking-tighter text-black">Snap Now</span>
-              </div>
-              
-              <div className="flex flex-col items-center group">
-                <span className="text-4xl mb-2 group-hover:scale-110 transition-transform">🖼️</span>
-                <span className="text-[10px] font-bold uppercase tracking-tighter text-black">From Gallery</span>
-              </div>
-            </div>
+        {/* HIDDEN INPUTS */}
+        {/* Input 1: Forced Camera */}
+        <input 
+          id="camera-input"
+          type="file" 
+          accept="image/*" 
+          capture="environment" 
+          className="hidden" 
+          onChange={handleFileChange}
+        />
+        {/* Input 2: Photo Library (Multiple) */}
+        <input 
+          id="gallery-input"
+          type="file" 
+          accept="image/*" 
+          multiple 
+          className="hidden" 
+          onChange={handleFileChange}
+        />
 
-            <p className="text-gray-400 text-xs font-medium">
-              {isDragActive ? "Release to upload" : "Tap to capture or select photos"}
-            </p>
-          </div>
+        {/* CUSTOM BUTTONS */}
+        <div className="grid grid-cols-2 gap-4">
+          <button
+            onClick={() => document.getElementById('camera-input')?.click()}
+            className="flex flex-col items-center justify-center border-2 border-black rounded-2xl p-6 hover:bg-stone-50 active:scale-95 transition-all shadow-sm"
+          >
+            <span className="text-5xl mb-3">📸</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-black">Snap Now</span>
+          </button>
+
+          <button
+            onClick={() => document.getElementById('gallery-input')?.click()}
+            className="flex flex-col items-center justify-center border-2 border-black rounded-2xl p-6 hover:bg-stone-50 active:scale-95 transition-all shadow-sm"
+          >
+            <span className="text-5xl mb-3">🖼️</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-black">Gallery</span>
+          </button>
         </div>
 
         {/* PROGRESS LIST */}
         {uploads.length > 0 && (
-          <div className="mt-6 space-y-3">
+          <div className="mt-8 space-y-3">
             {uploads.map((u) => (
               <div key={u.id} className="text-left">
                 <p className="text-[10px] truncate font-bold uppercase text-gray-400">{u.file.name}</p>
