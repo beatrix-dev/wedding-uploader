@@ -73,7 +73,7 @@ export default function GuestGallery() {
           <p className="text-gray-400 italic">No photos yet. Be the first to capture a moment! 📸</p>
         </div>
       ) : (
-        <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
+        <div className="grid grid-cols-3 gap-1 md:gap-4 px-1">
           {photos.map((photo) => (
             <div 
               key={photo.key} 
