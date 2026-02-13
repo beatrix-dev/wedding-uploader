@@ -1,13 +1,13 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 export default function GuestGallery() {
   const [photos, setPhotos] = useState<{url: string, key: string}[]>([]);
   const [loading, setLoading] = useState(true);
   const [myUploads, setMyUploads] = useState<string[]>([]);
   
-  // LIGHTBOX STATE
-  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  // LIGHTBOX STATE: Now tracking the index (number)
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
   useEffect(() => {
     fetch("/api/photos", { cache: 'no-store' })
@@ -27,8 +27,35 @@ export default function GuestGallery() {
     }
   }, []);
 
+  // Navigation Logic
+  const showNext = useCallback((e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (selectedIndex !== null) {
+      setSelectedIndex((prev) => (prev! + 1) % photos.length);
+    }
+  }, [selectedIndex, photos.length]);
+
+  const showPrev = useCallback((e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (selectedIndex !== null) {
+      setSelectedIndex((prev) => (prev! - 1 + photos.length) % photos.length);
+    }
+  }, [selectedIndex, photos.length]);
+
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (selectedIndex === null) return;
+      if (e.key === "ArrowRight") showNext();
+      if (e.key === "ArrowLeft") showPrev();
+      if (e.key === "Escape") setSelectedIndex(null);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedIndex, showNext, showPrev]);
+
   const handleDelete = async (e: React.MouseEvent, key: string) => {
-    e.stopPropagation(); // Prevent the lightbox from opening when clicking delete
+    e.stopPropagation(); 
     if (!confirm("Are you sure you want to delete this photo?")) return;
 
     try {
@@ -43,8 +70,6 @@ export default function GuestGallery() {
         const updated = myUploads.filter(k => k !== key);
         setMyUploads(updated);
         localStorage.setItem("my-wedding-uploads", JSON.stringify(updated));
-      } else {
-        alert("Could not delete. You might not have permission.");
       }
     } catch (err) {
       console.error("Delete error:", err);
@@ -72,22 +97,20 @@ export default function GuestGallery() {
           <p className="text-gray-400 italic">No photos yet. Be the first! 📸</p>
         </div>
       ) : (
-        /* 3-COLUMN GRID: aspect-square ensures a clean look */
         <div className="grid grid-cols-3 gap-1 md:gap-4">
-          {photos.map((photo) => (
+          {photos.map((photo, index) => (
             <div 
               key={photo.key} 
-              onClick={() => setSelectedPhoto(photo.url)}
+              onClick={() => setSelectedIndex(index)}
               className="relative aspect-square cursor-pointer overflow-hidden bg-gray-200 group active:scale-95 transition-transform"
             >
               <img 
                 src={photo.url} 
-                alt="Wedding moment"
+                alt=""
                 className="w-full h-full object-cover"
                 loading="lazy"
               />
               
-              {/* DELETE BUTTON */}
               {myUploads.includes(photo.key) && (
                 <button
                   onClick={(e) => handleDelete(e, photo.key)}
@@ -104,21 +127,44 @@ export default function GuestGallery() {
       )}
 
       {/* LIGHTBOX MODAL */}
-      {selectedPhoto && (
+      {selectedIndex !== null && (
         <div 
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4 md:p-10"
-          onClick={() => setSelectedPhoto(null)}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 transition-all duration-300"
+          onClick={() => setSelectedIndex(null)}
         >
-          {/* Close indicator for guests */}
-          <div className="absolute top-6 right-6 text-white/70 text-sm font-bold tracking-widest uppercase">
+          {/* Close indicator */}
+          <div className="absolute top-6 right-6 text-white/70 text-sm font-bold tracking-widest uppercase z-[110]">
             Close ✕
           </div>
+
+          {/* Navigation Arrows */}
+          <button 
+            onClick={showPrev}
+            className="absolute left-2 md:left-6 p-4 text-white hover:bg-white/10 rounded-full transition-colors z-[110]"
+          >
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M15 18l-6-6 6-6" /></svg>
+          </button>
+
+          <button 
+            onClick={showNext}
+            className="absolute right-2 md:right-6 p-4 text-white hover:bg-white/10 rounded-full transition-colors z-[110]"
+          >
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M9 18l6-6-6-6" /></svg>
+          </button>
           
-          <img 
-            src={selectedPhoto} 
-            alt="Full screen view" 
-            className="max-w-full max-h-full object-contain shadow-2xl rounded-sm animate-in zoom-in-95 duration-200"
-          />
+          <div className="relative w-full h-full flex items-center justify-center p-4">
+            <img 
+              key={photos[selectedIndex].key}
+              src={photos[selectedIndex].url} 
+              alt="Full screen view" 
+              className="max-w-full max-h-full object-contain shadow-2xl rounded-sm animate-in fade-in zoom-in-95 duration-200"
+            />
+          </div>
+
+          {/* Counter */}
+          <div className="absolute bottom-10 text-white/40 text-[10px] font-black uppercase tracking-[0.3em]">
+            {selectedIndex + 1} / {photos.length}
+          </div>
         </div>
       )}
 
@@ -126,7 +172,7 @@ export default function GuestGallery() {
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-20">
         <a 
           href="/" 
-          className="bg-black text-white px-10 py-3.5 rounded-full font-black text-[10px] uppercase tracking-[0.2em] shadow-2xl hover:scale-105 active:scale-95 transition-all"
+          className="bg-black text-white px-10 py-3.5 rounded-full font-black text-[10px] uppercase tracking-[0.2em] shadow-2xl active:scale-95 transition-all"
         >
           ← Capture More
         </a>
