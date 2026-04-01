@@ -3,7 +3,7 @@ import { DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { CreateInvalidationCommand } from "@aws-sdk/client-cloudfront";
 
 import { verifyDeleteToken } from "@/lib/delete-token";
-import { getServerConfig } from "@/lib/server-config";
+import { getDeleteTokenSecret, getServerConfig } from "@/lib/server-config";
 import { getCloudFrontClient, getS3Client } from "@/lib/s3";
 
 export async function DELETE(req: Request) {
@@ -15,10 +15,11 @@ export async function DELETE(req: Request) {
     }
 
     const config = getServerConfig();
+    const deleteTokenSecret = getDeleteTokenSecret();
     const s3 = getS3Client();
     const cloudFront = getCloudFrontClient();
 
-    if (!verifyDeleteToken(key, deleteToken, config.deleteTokenSecret)) {
+    if (!verifyDeleteToken(key, deleteToken, deleteTokenSecret)) {
       return NextResponse.json({ error: "Unauthorized delete request." }, { status: 403 });
     }
 

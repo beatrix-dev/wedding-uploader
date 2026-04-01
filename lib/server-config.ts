@@ -4,8 +4,7 @@ type RequiredEnvKey =
   | "AWS_REGION"
   | "AWS_ACCESS_KEY_ID"
   | "AWS_SECRET_ACCESS_KEY"
-  | "AWS_BUCKET_NAME"
-  | "DELETE_TOKEN_SECRET";
+  | "AWS_BUCKET_NAME";
 
 type ServerConfig = {
   awsRegion: string;
@@ -14,7 +13,7 @@ type ServerConfig = {
   awsBucketName: string;
   cloudFrontDomain: string | null;
   cloudFrontDistributionId: string | null;
-  deleteTokenSecret: string;
+  deleteTokenSecret: string | null;
 };
 
 let cachedConfig: ServerConfig | null = null;
@@ -41,8 +40,18 @@ export function getServerConfig(): ServerConfig {
     awsBucketName: getRequiredEnv("AWS_BUCKET_NAME"),
     cloudFrontDomain: process.env.AWS_CLOUDFRONT_DOMAIN ?? null,
     cloudFrontDistributionId: process.env.AWS_CLOUDFRONT_DISTRIBUTION_ID ?? null,
-    deleteTokenSecret: getRequiredEnv("DELETE_TOKEN_SECRET"),
+    deleteTokenSecret: process.env.DELETE_TOKEN_SECRET ?? null,
   };
 
   return cachedConfig;
+}
+
+export function getDeleteTokenSecret() {
+  const deleteTokenSecret = getServerConfig().deleteTokenSecret;
+
+  if (!deleteTokenSecret) {
+    throw new Error("Missing required environment variable: DELETE_TOKEN_SECRET");
+  }
+
+  return deleteTokenSecret;
 }

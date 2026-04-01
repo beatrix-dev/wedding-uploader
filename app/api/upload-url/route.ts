@@ -3,7 +3,7 @@ import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 import { createDeleteToken } from "@/lib/delete-token";
-import { getServerConfig } from "@/lib/server-config";
+import { getDeleteTokenSecret, getServerConfig } from "@/lib/server-config";
 import { getS3Client } from "@/lib/s3";
 
 export async function POST(req: Request) {
@@ -20,6 +20,7 @@ export async function POST(req: Request) {
 
     const config = getServerConfig();
     const s3 = getS3Client();
+    const deleteTokenSecret = getDeleteTokenSecret();
     const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
     const key = `${crypto.randomUUID()}-${safeFilename}`;
 
@@ -30,7 +31,7 @@ export async function POST(req: Request) {
     });
 
     const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 60 });
-    const deleteToken = createDeleteToken(key, config.deleteTokenSecret);
+    const deleteToken = createDeleteToken(key, deleteTokenSecret);
 
     return NextResponse.json({ uploadUrl, key, deleteToken });
   } catch (error) {
