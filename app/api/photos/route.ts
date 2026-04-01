@@ -1,36 +1,31 @@
-import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
+import { ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { NextResponse } from "next/server";
 
-const s3 = new S3Client({
-  region: process.env.AWS_REGION || "us-east-1",
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-  },
-});
+import { getServerConfig } from "@/lib/server-config";
+import { getS3Client } from "@/lib/s3";
 
 export async function GET() {
-  // Ensure this matches the variable name in your Vercel Settings exactly
-  const bucketName = process.env.AWS_BUCKET_NAME || "moses-wedding-photos";
-  const region = process.env.AWS_REGION || "us-east-1";
-
   try {
+    const config = getServerConfig();
+    const s3 = getS3Client();
     const command = new ListObjectsV2Command({
-      Bucket: bucketName,
+      Bucket: config.awsBucketName,
     });
 
     const { Contents } = await s3.send(command);
+    const baseUrl = config.cloudFrontDomain
+      ? `https://${config.cloudFrontDomain}`
+      : `https://${config.awsBucketName}.s3.${config.awsRegion}.amazonaws.com`;
 
-    // Filter out folders and only show actual images
-    const photos = Contents?.filter(item => item.Size! > 0).map((item) => ({
-      key: item.Key,
-      // Use the standard S3 virtual-hosted-style URL
-      url: `https://d2a2qfqrjw6f0p.cloudfront.net/${item.Key}`,
-    })) || [];
+    const photos =
+      Contents?.filter((item) => item.Key && (item.Size ?? 0) > 0).map((item) => ({
+        key: item.Key!,
+        url: `${baseUrl}/${item.Key!}`,
+      })) ?? [];
 
     return NextResponse.json(photos);
   } catch (error) {
-    console.error("S3 Error:", error);
-    return NextResponse.json([], { status: 500 });
+    console.error("Failed to fetch photos:", error);
+    return NextResponse.json({ error: "Failed to fetch photos." }, { status: 500 });
   }
 }

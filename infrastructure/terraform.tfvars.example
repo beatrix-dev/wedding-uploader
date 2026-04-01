@@ -1,0 +1,12 @@
+# infrastructure/terraform.tfvars
+# Copy this file per environment — terraform.dev.tfvars, terraform.prod.tfvars
+# Never commit real secrets here. Use SSM Parameter Store for those.
+
+aws_region   = "eu-west-1"
+environment  = "dev"
+project_name = "wedding-uploader-new"
+
+allowed_origins = [
+  "http://localhost:3000",
+  "https://your-project.vercel.app",   # replace with your Vercel preview URL
+]

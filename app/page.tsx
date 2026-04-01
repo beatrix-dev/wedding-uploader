@@ -5,61 +5,98 @@ import Link from "next/link";
 import { useRouter } from "next/navigation"; 
 import Image from "next/image";
 
+import { readUploadRecords, writeUploadRecords } from "@/lib/upload-records";
+
 type UploadingFile = {
   id: string; 
   file: File;
   progress: number;
+  status: "queued" | "uploading" | "done" | "error";
+  error?: string;
 };
 
 export default function Home() {
   const [uploads, setUploads] = useState<UploadingFile[]>([]);
   const [success, setSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const router = useRouter(); 
 
   const uploadFile = (file: File, uploadId: string) => {
-    return new Promise(async (resolve, reject) => {
+    return new Promise<void>(async (resolve, reject) => {
       try {
         if (file.size === 0) {
-          reject("File is empty");
+          reject(new Error("File is empty."));
           return;
         }
+
+        setUploads((prev) =>
+          prev.map((upload) =>
+            upload.id === uploadId ? { ...upload, status: "uploading", error: undefined } : upload,
+          ),
+        );
 
         const res = await fetch("/api/upload-url", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ filename: file.name, contentType: file.type }),
         });
-        
-        const { uploadUrl, key } = await res.json(); 
+
+        const payload = (await res.json()) as {
+          uploadUrl?: string;
+          key?: string;
+          deleteToken?: string;
+          error?: string;
+        };
+
+        if (!res.ok || !payload.uploadUrl || !payload.key || !payload.deleteToken) {
+          throw new Error(payload.error ?? "Failed to prepare upload.");
+        }
   
         const xhr = new XMLHttpRequest();
-        xhr.open("PUT", uploadUrl);
+        xhr.open("PUT", payload.uploadUrl);
         xhr.setRequestHeader("Content-Type", file.type);
   
         xhr.upload.onprogress = (event) => {
           if (event.lengthComputable) {
             const percentComplete = Math.round((event.loaded / event.total) * 100);
             setUploads((prev) =>
-              prev.map((u) => (u.id === uploadId ? { ...u, progress: percentComplete } : u))
+              prev.map((u) =>
+                u.id === uploadId ? { ...u, progress: percentComplete, status: "uploading" } : u,
+              )
             );
           }
         };
   
         xhr.onload = () => {
-          if (xhr.status === 200) {
-            const existing = JSON.parse(localStorage.getItem("my-wedding-uploads") || "[]");
-            if (!existing.includes(key)) {
-              localStorage.setItem("my-wedding-uploads", JSON.stringify([...existing, key]));
-            }
-            resolve(true);
+          if (xhr.status >= 200 && xhr.status < 300) {
+            const existing = readUploadRecords(localStorage);
+            existing[payload.key!] = {
+              deleteToken: payload.deleteToken!,
+              uploadedAt: new Date().toISOString(),
+            };
+            writeUploadRecords(localStorage, existing);
+
+            setUploads((prev) =>
+              prev.map((u) =>
+                u.id === uploadId ? { ...u, progress: 100, status: "done", error: undefined } : u,
+              ),
+            );
+            resolve();
           } else {
-            reject();
+            reject(new Error("Upload failed while sending the file."));
           }
         };
         
-        xhr.onerror = () => reject();
+        xhr.onerror = () => reject(new Error("Network error while uploading the file."));
         xhr.send(file);
       } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Something went wrong while uploading.";
+        setUploads((prev) =>
+          prev.map((upload) =>
+            upload.id === uploadId ? { ...upload, status: "error", error: message } : upload,
+          ),
+        );
         reject(err);
       }
     });
@@ -75,22 +112,33 @@ export default function Home() {
     }
 
     setSuccess(false);
+    setErrorMessage(null);
     const newUploads = selectedFiles.map((file) => ({
       id: Math.random().toString(36).substring(7),
       file,
-      progress: 0 
+      progress: 0,
+      status: "queued" as const,
     }));
     
     setUploads((prev) => [...prev, ...newUploads]);
 
     try {
-      for (const item of newUploads) {
-        await uploadFile(item.file, item.id);
+      const concurrency = 3;
+
+      for (let index = 0; index < newUploads.length; index += concurrency) {
+        const batch = newUploads.slice(index, index + concurrency);
+        await Promise.all(batch.map((item) => uploadFile(item.file, item.id)));
       }
+
       setSuccess(true);
-      setTimeout(() => { router.push("/gallery"); }, 2000);
+      setTimeout(() => {
+        router.push("/gallery");
+      }, 2000);
     } catch (error) {
       console.error("Upload failed", error);
+      setErrorMessage(
+        error instanceof Error ? error.message : "Some photos could not be uploaded.",
+      );
     }
   };
 
@@ -150,13 +198,29 @@ export default function Home() {
               <div key={u.id} className="text-left">
                 <div className="flex justify-between items-center mb-1">
                     <p className="text-[9px] truncate font-bold uppercase text-gray-400 max-w-[150px]">{u.file.name}</p>
-                    <p className="text-[9px] font-black text-black">{u.progress}%</p>
+                    <p className="text-[9px] font-black text-black">
+                      {u.status === "error" ? "Error" : `${u.progress}%`}
+                    </p>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-1">
-                  <div className="bg-black h-1 rounded-full transition-all duration-300" style={{ width: `${u.progress}%` }} />
+                  <div
+                    className={`h-1 rounded-full transition-all duration-300 ${
+                      u.status === "error" ? "bg-red-500" : "bg-black"
+                    }`}
+                    style={{ width: `${u.progress}%` }}
+                  />
                 </div>
+                {u.error && <p className="mt-1 text-[10px] text-red-600">{u.error}</p>}
               </div>
             ))}
+          </div>
+        )}
+
+        {errorMessage && (
+          <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4">
+            <p className="text-xs font-bold uppercase tracking-widest text-red-700">
+              {errorMessage}
+            </p>
           </div>
         )}
 

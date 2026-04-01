@@ -1,36 +1,68 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## Wedding Uploader
 
-## Getting Started
+Private photo upload and gallery app for a wedding event. Guests can upload images directly to S3 with presigned URLs, browse the shared gallery, and delete only the photos uploaded from their own device.
 
-First, run the development server:
+## Stack
+
+- Next.js App Router
+- S3 for object storage
+- Optional CloudFront for image delivery and cache invalidation
+- Terraform for AWS infrastructure scaffolding
+
+## Local Setup
+
+Create `.env.local` with:
+
+```bash
+AWS_REGION=eu-west-1
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+AWS_BUCKET_NAME=...
+DELETE_TOKEN_SECRET=...
+# Optional
+AWS_CLOUDFRONT_DOMAIN=...
+AWS_CLOUDFRONT_DISTRIBUTION_ID=...
+```
+
+Then run:
+
+```bash
+npm install
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+## Environment Notes
+
+- `DELETE_TOKEN_SECRET` is used to sign delete permissions per upload.
+- If `AWS_CLOUDFRONT_DOMAIN` is set, gallery images are served through CloudFront.
+- If `AWS_CLOUDFRONT_DISTRIBUTION_ID` is also set, delete requests trigger cache invalidation.
+
+## Scripts
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run lint
+npm run build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Infrastructure
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Terraform files live in `infrastructure/`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Use `infrastructure/terraform.tfvars.example` as a starting point for environment-specific tfvars.
+- Consider configuring a remote Terraform backend before sharing this with a team.
 
-## Learn More
+## Deployment Checklist
 
-To learn more about Next.js, take a look at the following resources:
+- Set all required environment variables in your hosting platform.
+- Confirm S3 CORS allows your site origin.
+- If using CloudFront, set both the domain and distribution ID.
+- Run `npm run lint` and `npm run build` before deploy.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Current Behavior
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Uploads are limited to images and processed in small parallel batches.
+- Gallery delete controls only appear for uploads that have a matching signed token on the current device.
+- Older `localStorage` formats are treated as non-deletable for safety.

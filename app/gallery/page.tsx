@@ -1,48 +1,90 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
+
+import { readUploadRecords, writeUploadRecords, type UploadRecordMap } from "@/lib/upload-records";
+
+type Photo = {
+  url: string;
+  key: string;
+};
 
 export default function GuestGallery() {
-  const [photos, setPhotos] = useState<{url: string, key: string}[]>([]);
+  const [photos, setPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(true);
-  const [myUploads, setMyUploads] = useState<string[]>([]);
-  
-  // LIGHTBOX STATE: Now tracking the index (number)
+  const [myUploads, setMyUploads] = useState<UploadRecordMap>(() => {
+    if (typeof window === "undefined") {
+      return {};
+    }
+
+    return readUploadRecords(window.localStorage);
+  });
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
   useEffect(() => {
-    fetch("/api/photos", { cache: 'no-store' })
-      .then(res => res.json())
-      .then(data => {
-        setPhotos(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error("Gallery fetch error:", err);
-        setLoading(false);
-      });
+    let active = true;
 
-    const saved = localStorage.getItem("my-wedding-uploads");
-    if (saved) {
-      setMyUploads(JSON.parse(saved));
+    async function loadPhotos() {
+      try {
+        const res = await fetch("/api/photos", { cache: "no-store" });
+        const data = (await res.json()) as Photo[] | { error?: string };
+
+        if (!res.ok) {
+          throw new Error(
+            "error" in data && data.error ? data.error : "Failed to load the gallery.",
+          );
+        }
+
+        if (active) {
+          setPhotos(data as Photo[]);
+        }
+      } catch (err) {
+        console.error("Gallery fetch error:", err);
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
     }
+
+    void loadPhotos();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  // Navigation Logic
   const showNext = useCallback((e?: React.MouseEvent) => {
     e?.stopPropagation();
-    if (selectedIndex !== null) {
-      setSelectedIndex((prev) => (prev! + 1) % photos.length);
+    if (photos.length === 0) {
+      return;
     }
-  }, [selectedIndex, photos.length]);
+
+    setSelectedIndex((prev) => {
+      if (prev === null) {
+        return prev;
+      }
+
+      return (prev + 1) % photos.length;
+    });
+  }, [photos.length]);
 
   const showPrev = useCallback((e?: React.MouseEvent) => {
     e?.stopPropagation();
-    if (selectedIndex !== null) {
-      setSelectedIndex((prev) => (prev! - 1 + photos.length) % photos.length);
+    if (photos.length === 0) {
+      return;
     }
-  }, [selectedIndex, photos.length]);
 
-  // Keyboard Shortcuts
+    setSelectedIndex((prev) => {
+      if (prev === null) {
+        return prev;
+      }
+
+      return (prev - 1 + photos.length) % photos.length;
+    });
+  }, [photos.length]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (selectedIndex === null) return;
@@ -59,20 +101,44 @@ export default function GuestGallery() {
     if (!confirm("Are you sure you want to delete this photo?")) return;
 
     try {
+      const uploadRecord = myUploads[key];
+
+      if (!uploadRecord) {
+        throw new Error("This photo can only be deleted from the device that uploaded it.");
+      }
+
       const res = await fetch("/api/photos/delete", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key }),
+        body: JSON.stringify({ key, deleteToken: uploadRecord.deleteToken }),
       });
 
-      if (res.ok) {
-        setPhotos((prev) => prev.filter((p) => p.key !== key));
-        const updated = myUploads.filter(k => k !== key);
-        setMyUploads(updated);
-        localStorage.setItem("my-wedding-uploads", JSON.stringify(updated));
+      const payload = (await res.json()) as { error?: string };
+
+      if (!res.ok) {
+        throw new Error(payload.error ?? "Delete failed.");
       }
+
+      setPhotos((prev) => prev.filter((p) => p.key !== key));
+      setSelectedIndex((prev) => {
+        if (prev === null) {
+          return prev;
+        }
+
+        if (photos.length <= 1) {
+          return null;
+        }
+
+        return prev >= photos.length - 1 ? photos.length - 2 : prev;
+      });
+
+      const updatedUploads = { ...myUploads };
+      delete updatedUploads[key];
+      setMyUploads(updatedUploads);
+      writeUploadRecords(localStorage, updatedUploads);
     } catch (err) {
       console.error("Delete error:", err);
+      alert(err instanceof Error ? err.message : "Unable to delete this photo.");
     }
   };
 
@@ -104,14 +170,15 @@ export default function GuestGallery() {
               onClick={() => setSelectedIndex(index)}
               className="relative aspect-square cursor-pointer overflow-hidden bg-gray-200 group active:scale-95 transition-transform"
             >
-              <img 
+              <Image
                 src={photo.url} 
-                alt=""
-                className="w-full h-full object-cover"
-                loading="lazy"
+                alt="Wedding guest photo"
+                fill
+                sizes="(max-width: 768px) 33vw, 20vw"
+                className="object-cover"
               />
               
-              {myUploads.includes(photo.key) && (
+              {myUploads[photo.key] && (
                 <button
                   onClick={(e) => handleDelete(e, photo.key)}
                   className="absolute top-2 right-2 bg-white/80 text-black p-1.5 rounded-full shadow-md z-10"
@@ -153,11 +220,13 @@ export default function GuestGallery() {
           </button>
           
           <div className="relative w-full h-full flex items-center justify-center p-4">
-            <img 
+            <Image
               key={photos[selectedIndex].key}
               src={photos[selectedIndex].url} 
               alt="Full screen view" 
-              className="max-w-full max-h-full object-contain shadow-2xl rounded-sm animate-in fade-in zoom-in-95 duration-200"
+              fill
+              sizes="100vw"
+              className="object-contain shadow-2xl rounded-sm animate-in fade-in zoom-in-95 duration-200"
             />
           </div>
 
@@ -170,12 +239,12 @@ export default function GuestGallery() {
 
       {/* BACK BUTTON */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-20">
-        <a 
+        <Link
           href="/" 
           className="bg-black text-white px-10 py-3.5 rounded-full font-black text-[10px] uppercase tracking-[0.2em] shadow-2xl active:scale-95 transition-all"
         >
           ← Capture More
-        </a>
+        </Link>
       </div>
     </div>
   );
